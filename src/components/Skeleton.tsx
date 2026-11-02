@@ -42,5 +42,5 @@ const styles = StyleSheet.create({
   cover: { width: "100%", aspectRatio: 4 / 5, backgroundColor: colors.chip },
   body: { padding: 16, gap: 12 },
   bar: { height: 12, borderRadius: 6, backgroundColor: colors.chip },
-  button: { height: 52, borderRadius: 16, backgroundColor: colors.chip, marginTop: 6 },
+  button: { height: 52, borderRadius: 16, backgroundColor: colors.chip, marginTop: 6 }
 });
