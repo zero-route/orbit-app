@@ -89,7 +89,7 @@ export async function saveOne(file: SaveFile): Promise<SaveResult> {
     return { ok: true };
   } catch (error) {
     if (error && typeof error === "object" && "expired" in error) {
-      return { ok: false, expired: true, message: "Link kedaluwarsa, ambil ulang." };
+      return { ok: false, expired: true, message: "Link kedaluwarsa, ambil ulang." }
     }
 
     return {
