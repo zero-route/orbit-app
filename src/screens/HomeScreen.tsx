@@ -1,4 +1,4 @@
- import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Keyboard,
   Pressable,
@@ -223,7 +223,7 @@ export default function HomeScreen() {
       done += 1;
     }
 
-    show(`${done} file tersimpan di album Orbit.`);
+    show(`${done} file tersimpan di galeri (album Orbit).`);
     setSaving(false);
   };
 
