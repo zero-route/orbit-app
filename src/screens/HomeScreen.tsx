@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+ import { useEffect, useRef, useState } from "react";
 import {
   Keyboard,
   Pressable,
@@ -243,24 +243,22 @@ export default function HomeScreen() {
         contentContainerStyle={[styles.scroll, { paddingBottom: result ? 150 : 48 }]}
         keyboardShouldPersistTaps="handled"
       >
-        {compact ? (
-          <View style={styles.heroCompact}>
-            <Logo size={34} />
-            <Text style={styles.titleCompact}>Orbit</Text>
-          </View>
-        ) : (
+        <View style={styles.header}>
+          <Logo size={36} />
+          <Text style={styles.brand}>Orbit</Text>
+        </View>
+
+        {!compact ? (
           <View style={styles.hero}>
-            <Logo size={64} />
             <Text style={styles.title}>Orbit Media</Text>
             <Text style={styles.sub}>Download media dari berbagai platform</Text>
           </View>
-        )}
+        ) : null}
 
         <View style={styles.row}>
           <View style={styles.flex}>
             <GradientBox radius={22} solid={accent}>
               <View style={styles.urlInner}>
-                <Icon name="link" size={20} color={accent ?? colors.mute} />
                 <TextInput
                   value={input}
                   onChangeText={setInput}
@@ -282,6 +280,7 @@ export default function HomeScreen() {
             </GradientBox>
           </View>
           <Pressable onPress={paste} style={styles.paste}>
+            <Icon name="copy" size={18} color={colors.text} />
             <Text style={styles.pasteText}>Tempel</Text>
           </Pressable>
         </View>
@@ -338,11 +337,11 @@ const styles = StyleSheet.create({
     paddingTop: RNStatusBar.currentHeight ?? 40,
   },
   scroll: { padding: 20, gap: 16 },
-  hero: { alignItems: "center", gap: 8, marginTop: 24, marginBottom: 18 },
-  heroCompact: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 2 },
-  title: { color: colors.text, fontSize: 32, fontWeight: "800" },
-  titleCompact: { color: colors.text, fontSize: 20, fontWeight: "800" },
-  sub: { color: colors.mute, fontSize: 14, textAlign: "center" },
+  header: { flexDirection: "row", alignItems: "center", gap: 10 },
+  brand: { color: colors.text, fontSize: 20, fontWeight: "600", letterSpacing: -0.2 },
+  hero: { alignItems: "center", gap: 10, marginTop: 56, marginBottom: 14 },
+  title: { color: colors.text, fontSize: 33, fontWeight: "600", letterSpacing: -0.8 },
+  sub: { color: colors.mute, fontSize: 15, textAlign: "center" },
   row: { flexDirection: "row", gap: 10, alignItems: "stretch" },
   flex: { flex: 1 },
   urlInner: {
@@ -351,7 +350,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.card,
     borderRadius: 20.5,
     paddingHorizontal: 16,
-    minHeight: 54,
+    minHeight: 58,
     gap: 10,
   },
   input: { flex: 1, color: colors.text, fontSize: 15, paddingVertical: 12 },
@@ -360,11 +359,14 @@ const styles = StyleSheet.create({
     borderColor: "rgba(235,238,245,0.24)",
     borderRadius: radius.md,
     paddingHorizontal: 16,
+    flexDirection: "row",
+    alignItems: "center",
     justifyContent: "center",
+    gap: 8,
     backgroundColor: colors.fill,
   },
   pasteText: { color: colors.text, fontWeight: "600", fontSize: 14 },
-  reminder: { color: colors.mute, fontSize: 13, lineHeight: 19, marginTop: -6 },
+  reminder: { color: colors.mute, fontSize: 13, lineHeight: 19, marginTop: -6, marginLeft: 4 },
   message: { color: colors.ok, fontSize: 14 },
   error: { color: colors.bad },
   bar: {
