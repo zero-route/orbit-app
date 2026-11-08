@@ -37,6 +37,6 @@ const styles = StyleSheet.create({
   head: { flexDirection: "row", alignItems: "center", gap: 12 },
   line: { flex: 1, height: 1, backgroundColor: "rgba(232,234,240,0.25)" },
   title: { color: colors.mute, fontSize: 13, letterSpacing: 0.5 },
-  row: { flexDirection: "row", justifyContent: "space-between" },
-  icon: { width: 36, height: 36 },
+  row: { flexDirection: "row", justifyContent: "space-around" },
+  icon: { width: 42, height: 42, borderRadius: 21 },
 });
