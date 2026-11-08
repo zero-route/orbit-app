@@ -44,19 +44,33 @@ async function resolveTarget(file: SaveFile) {
   return { url: body.url, headers: {} as Record<string, string> };
 }
 
-async function toGallery(uri: string) {
+function albumFor(filename: string) {
+  const ext = filename.split(".").pop()?.toLowerCase() ?? "";
+
+  if (["mp3", "m4a", "aac", "wav", "ogg", "opus", "flac"].includes(ext)) {
+    return `${ALBUM_NAME} Audio`;
+  }
+
+  if (["jpg", "jpeg", "png", "webp", "gif", "heic", "heif"].includes(ext)) {
+    return `${ALBUM_NAME} Foto`;
+  }
+
+  return `${ALBUM_NAME} Video`;
+}
+
+async function toGallery(uri: string, albumName: string) {
   const permission = await requestPermissionsAsync(true);
 
   if (!permission.granted) {
     throw new Error("Izin galeri ditolak. Aktifkan di pengaturan aplikasi.");
   }
 
-  const album = await Album.get(ALBUM_NAME);
+  const album = await Album.get(albumName);
 
   if (album) {
     await Asset.create(uri, album);
   } else {
-    await Album.create(ALBUM_NAME, [uri], false);
+    await Album.create(albumName, [uri], false);
   }
 }
 
@@ -83,7 +97,7 @@ export async function saveOne(file: SaveFile): Promise<SaveResult> {
       }
     }
 
-    await toGallery(downloaded.uri);
+    await toGallery(downloaded.uri, albumFor(file.filename));
     downloaded.delete();
 
     return { ok: true };
