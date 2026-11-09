@@ -42,7 +42,7 @@
     ],
     "extra": {
       "eas": {
-        "projectId": "7ac4b2de-f456-4699-9e1e-3dd7160d0c22"
+        "projectId": "58abc134-e5cd-4ff3-bcf4-403579cf99df"
       }
     },
     "owner": "zero-routesdk",
@@ -50,7 +50,7 @@
       "policy": "appVersion"
     },
     "updates": {
-      "url": "https://u.expo.dev/7ac4b2de-f456-4699-9e1e-3dd7160d0c22",
+      "url": "https://u.expo.dev/58abc134-e5cd-4ff3-bcf4-403579cf99df",
       "fallbackToCacheTimeout": 0
     }
   }
