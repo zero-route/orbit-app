@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "Orbit",
-    "slug": "orbit-app",
+    "name": "Orbit Apk",
+    "slug": "orbit",
     "version": "0.1.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
