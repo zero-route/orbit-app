@@ -14,6 +14,7 @@ export function useResultController({ result, onSave, onNotice }: Options) {
   const [qualityId, setQualityId] = useState("");
   const [photoIndex, setPhotoIndex] = useState(0);
   const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [mode, setMode] = useState<"photos" | "slideshow">("photos");
   const key = result?.sourceUrl ?? "";
 
   useEffect(() => {
@@ -25,6 +26,7 @@ export function useResultController({ result, onSave, onNotice }: Options) {
       result.videos.find((item) => item.id === "720p")?.id ?? result.videos[0]?.id ?? ""
     );
     setPhotoIndex(0);
+    setMode("photos");
     setSelected(new Set(result.photos.map((_, index) => index)));
   }, [key]);
 
@@ -64,8 +66,13 @@ export function useResultController({ result, onSave, onNotice }: Options) {
   const hasClips = result.photos.some((photo) => photo.isVideo);
   const unit = hasClips ? "file" : "foto";
 
+  const hasSlideshow = result.kind === "photo" && Boolean(result.slideshowUrl);
+  const slideshowMode = hasSlideshow && mode === "slideshow";
+
   const primaryLabel =
-    result.kind === "photo"
+    slideshowMode
+      ? "Unduh slideshow"
+      : result.kind === "photo"
       ? picked.length > 0
         ? `Unduh ${picked.length} ${unit}`
         : `Pilih ${unit}`
@@ -96,6 +103,11 @@ export function useResultController({ result, onSave, onNotice }: Options) {
         onSave([{ url: result.audio.url, filename: fileName(result, result.audio.ext) }]);
       }
 
+      return;
+    }
+
+    if (slideshowMode && result.slideshowUrl) {
+      onSave([{ url: result.slideshowUrl, filename: fileName(result, "mp4", "slideshow") }]);
       return;
     }
 
@@ -149,15 +161,23 @@ export function useResultController({ result, onSave, onNotice }: Options) {
     toggle,
     videoUrl: quality?.url,
     primaryLabel,
+    modes: hasSlideshow
+      ? [
+          { id: "photos", label: "Foto" },
+          { id: "slideshow", label: "Slideshow + musik" },
+        ]
+      : [],
+    mode,
+    setMode: (id: string) => setMode(id === "slideshow" ? "slideshow" : "photos"),
     canPrimary:
-      result.kind === "photo" ? picked.length > 0 : true,
+      slideshowMode ? true : result.kind === "photo" ? picked.length > 0 : true,
     primary,
     audio: result.kind === "video" || (result.kind === "photo" && Boolean(result.audio))
       ? audio
       : undefined,
     slideshow:
-      result.kind === "photo" && result.platform === "tiktok"
-        ? ((result.audio ? "enabled" : "disabled") as "enabled" | "disabled")
+      result.kind === "photo" && result.platform === "tiktok" && !hasSlideshow
+        ? ("disabled" as const)
         : ("hidden" as const),
     onSlideshow: slideshow,
     copy: result.caption ? () => void copy() : undefined,
