@@ -42,6 +42,10 @@ export default function ResultCard({ result, ctrl, onNotice }: Props) {
         <CaptionBlock text={result.caption} />
       </View>
 
+      {ctrl.modes.length > 1 ? (
+        <QualityPicker options={ctrl.modes} value={ctrl.mode} onChange={ctrl.setMode} />
+      ) : null}
+
       {result.kind === "video" ? (
         <QualityPicker
           options={result.videos.map((item) => ({ id: item.id, label: item.label }))}
