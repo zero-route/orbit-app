@@ -74,6 +74,70 @@ async function toGallery(uri: string, albumName: string) {
   }
 }
 
+type Sniffed = { ext?: string; text?: string };
+
+function sniff(bytes: Uint8Array): Sniffed {
+  const at = (index: number) => bytes[index] ?? 0;
+  const ascii = (from: number, to: number) =>
+    String.fromCharCode(...Array.from(bytes.slice(from, to)));
+
+  if (ascii(4, 8) === "ftyp") {
+    const brand = ascii(8, 12);
+
+    if (/^(heic|heix|hevc|hevx|mif1|msf1)/.test(brand)) {
+      return { ext: "heic" };
+    }
+
+    return { ext: brand.startsWith("M4A") ? "m4a" : "mp4" };
+  }
+
+  if (at(0) === 0xff && at(1) === 0xd8) return { ext: "jpg" };
+  if (at(0) === 0x89 && ascii(1, 4) === "PNG") return { ext: "png" };
+  if (ascii(0, 4) === "RIFF" && ascii(8, 12) === "WEBP") return { ext: "webp" };
+  if (ascii(0, 3) === "GIF") return { ext: "gif" };
+  if (ascii(0, 3) === "ID3" || (at(0) === 0xff && (at(1) & 0xe0) === 0xe0)) {
+    return { ext: "mp3" };
+  }
+
+  const head = ascii(0, Math.min(bytes.length, 200)).trimStart();
+
+  if (head.startsWith("{") || head.startsWith("<")) {
+    return { text: head };
+  }
+
+  return {};
+}
+
+function readHead(file: File) {
+  try {
+    const handle = file.open();
+    const bytes = handle.readBytes(256);
+
+    handle.close();
+
+    return bytes;
+  } catch {
+    return null;
+  }
+}
+
+function withExt(filename: string, ext: string) {
+  const dot = filename.lastIndexOf(".");
+
+  return `${dot > 0 ? filename.slice(0, dot) : filename}.${ext}`;
+}
+
+function sameFamily(a: string, b: string) {
+  const group = (ext: string) =>
+    ["jpg", "jpeg", "png", "webp", "gif", "heic", "heif"].includes(ext)
+      ? "image"
+      : ["mp3", "m4a", "aac", "wav", "ogg", "opus", "flac"].includes(ext)
+        ? "audio"
+        : "video";
+
+  return group(a) === group(b);
+}
+
 export async function saveOne(file: SaveFile): Promise<SaveResult> {
   try {
     const target = await resolveTarget(file);
@@ -87,17 +151,55 @@ export async function saveOne(file: SaveFile): Promise<SaveResult> {
       headers: target.headers,
     });
 
-    if (downloaded.size < 2048) {
-      const head = downloaded.textSync().trimStart();
+    let finalName = file.filename;
+    const head = readHead(downloaded);
 
-      if (head.startsWith("{") || head.startsWith("<")) {
+    if (head) {
+      const found = sniff(head);
+
+      if (found.text !== undefined) {
+        const size = downloaded.size;
+
+        downloaded.delete();
+
+        if (size < 2048 || /expired|kedaluwarsa/i.test(found.text)) {
+          return { ok: false, expired: true, message: "Link kedaluwarsa, ambil ulang." };
+        }
+
+        return { ok: false, message: "Server mengirim galat, bukan file media. Coba lagi." };
+      }
+
+      const current = file.filename.split(".").pop()?.toLowerCase() ?? "";
+
+      if (found.ext && found.ext !== current && sameFamily(found.ext, current)) {
+        const renamed = new File(Paths.cache, withExt(file.filename, found.ext));
+
+        try {
+          if (renamed.exists) {
+            renamed.delete();
+          }
+
+          downloaded.move(renamed);
+          finalName = renamed.name;
+        } catch {
+          finalName = file.filename;
+        }
+      } else if (found.ext && !sameFamily(found.ext, current)) {
+        downloaded.delete();
+
+        return { ok: false, message: "Format file dari server tidak sesuai. Coba lagi." };
+      }
+    } else if (downloaded.size < 2048) {
+      const text = downloaded.textSync().trimStart();
+
+      if (text.startsWith("{") || text.startsWith("<")) {
         downloaded.delete();
 
         return { ok: false, expired: true, message: "Link kedaluwarsa, ambil ulang." };
       }
     }
 
-    await toGallery(downloaded.uri, albumFor(file.filename));
+    await toGallery(downloaded.uri, albumFor(finalName));
     downloaded.delete();
 
     return { ok: true };
