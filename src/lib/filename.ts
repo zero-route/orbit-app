@@ -35,15 +35,15 @@ function titleName(value: string) {
 }
 
 export function fileName(result: MediaResult, ext: string, suffix?: string) {
-  const titled =
-    result.platform === "spotify" ||
-    (result.platform === "youtube" && ext === "mp3");
+  const titled = result.platform === "spotify" || result.platform === "youtube";
 
   if (titled && result.audio?.title) {
     const title = titleName(result.audio.title);
 
     if (title) {
-      return `${title}.${ext}`;
+      const quality = suffix && ext !== "mp3" ? ` (${titleName(suffix)})` : "";
+
+      return `${title}${quality}.${ext}`;
     }
   }
 
