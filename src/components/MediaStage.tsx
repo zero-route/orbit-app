@@ -15,6 +15,7 @@ import { colors, radius } from "../theme";
 import type { MediaResult } from "../types";
 import AudioPreview from "./AudioPreview";
 import Icon from "./Icon";
+import RemoteImage from "./RemoteImage";
 import VideoPreview from "./VideoPreview";
 
 type Props = {
@@ -61,8 +62,7 @@ function PhotoStage({ result, photoIndex, selected, onPhotoIndex, onToggle, boxW
   const total = result.photos.length;
   const current = result.photos[photoIndex];
   const shown = current?.isVideo ? current.thumbnailUrl : (current?.previewUrl ?? current?.url);
-  const uri = shown ? absolute(shown) : undefined;
-  const ratio = useRatio(uri, 1);
+  const [ratio, setRatio] = useState(1);
   const height = Math.min(boxWidth / ratio, maxHeight);
 
   const step = (delta: number) => onPhotoIndex((photoIndex + delta + total) % total);
@@ -70,7 +70,14 @@ function PhotoStage({ result, photoIndex, selected, onPhotoIndex, onToggle, boxW
   return (
     <View style={styles.gap}>
       <View style={[styles.box, { width: boxWidth, height }]}>
-        {uri ? <Image source={{ uri }} style={styles.fill} resizeMode="contain" /> : null}
+        <RemoteImage
+          key={shown}
+          uri={shown}
+          style={styles.fill}
+          resizeMode="contain"
+          onSize={(width, height) => setRatio(width / height)}
+          showError
+        />
         {total > 1 ? (
           <>
             <Text style={[styles.badge, styles.badgeTop]}>
@@ -97,8 +104,8 @@ function PhotoStage({ result, photoIndex, selected, onPhotoIndex, onToggle, boxW
                 onPress={() => onPhotoIndex(index)}
                 style={[styles.thumb, index === photoIndex && styles.thumbCurrent]}
               >
-                <Image
-                  source={{ uri: absolute(photo.thumbnailUrl ?? photo.url) }}
+                <RemoteImage
+                  uri={photo.thumbnailUrl ?? photo.url}
                   style={styles.fill}
                   resizeMode="cover"
                 />
