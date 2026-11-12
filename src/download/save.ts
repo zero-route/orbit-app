@@ -20,13 +20,13 @@ function isProxy(url: string) {
 
 async function resolveTarget(file: SaveFile) {
   if (!isProxy(file.url)) {
-    return { url: file.url, headers: {} as Record<string, string> };
+    return { url: file.url, headers: {} as Record<string, string>, warm: false };
   }
 
   const headers = await authHeaders();
 
   if (!file.url.startsWith(LINK_PREFIX)) {
-    return { url: absolute(file.url), headers };
+    return { url: absolute(file.url), headers, warm: false };
   }
 
   const response = await fetch(absolute(file.url), { headers });
@@ -41,13 +41,45 @@ async function resolveTarget(file: SaveFile) {
     throw new Error(body.error ?? "Link unduhan tidak tersedia.");
   }
 
-  return { url: body.url, headers: {} as Record<string, string> };
+  return { url: body.url, headers: {} as Record<string, string>, warm: true };
 }
 
 const SLOW_ROUTES = ["/api/ytmp3", "/api/mp3", "/api/slideshow"];
 
 function isSlow(url: string) {
   return SLOW_ROUTES.some((prefix) => url.startsWith(prefix));
+}
+
+async function warmUp(url: string) {
+  const controller = new AbortController();
+
+  try {
+    await fetch(url, { headers: { Range: "bytes=0-0" }, signal: controller.signal });
+  } catch {
+    return;
+  } finally {
+    controller.abort();
+  }
+}
+
+async function downloadWithRetry(
+  url: string,
+  destination: File,
+  headers: Record<string, string>
+) {
+  try {
+    return await File.downloadFileAsync(url, destination, { headers });
+  } catch (error) {
+    if (!(error instanceof Error) || !/timeout/i.test(error.message)) {
+      throw error;
+    }
+
+    if (destination.exists) {
+      destination.delete();
+    }
+
+    return File.downloadFileAsync(url, destination, { headers });
+  }
 }
 
 async function fetchToFile(url: string, headers: Record<string, string>, destination: File) {
@@ -187,11 +219,13 @@ export async function saveOne(file: SaveFile): Promise<SaveResult> {
       destination.delete();
     }
 
+    if (target.warm) {
+      await warmUp(target.url);
+    }
+
     const downloaded = isSlow(file.url)
       ? await fetchToFile(target.url, target.headers, destination)
-      : await File.downloadFileAsync(target.url, destination, {
-          headers: target.headers,
-        });
+      : await downloadWithRetry(target.url, destination, target.headers);
 
     let finalName = file.filename;
     const head = readHead(downloaded);
