@@ -180,10 +180,11 @@ function sniff(bytes: Uint8Array): Sniffed {
   return {};
 }
 
+
 function readHead(file: File) {
   try {
     const handle = file.open();
-    const bytes = handle.readBytes(256);
+    const bytes = handle.readBytesSync(256);
 
     handle.close();
 
@@ -192,6 +193,7 @@ function readHead(file: File) {
     return null;
   }
 }
+
 
 function withExt(filename: string, ext: string) {
   const dot = filename.lastIndexOf(".");
