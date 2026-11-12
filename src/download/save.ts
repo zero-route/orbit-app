@@ -44,6 +44,46 @@ async function resolveTarget(file: SaveFile) {
   return { url: body.url, headers: {} as Record<string, string> };
 }
 
+const SLOW_ROUTES = ["/api/ytmp3", "/api/mp3", "/api/slideshow"];
+
+function isSlow(url: string) {
+  return SLOW_ROUTES.some((prefix) => url.startsWith(prefix));
+}
+
+async function fetchToFile(url: string, headers: Record<string, string>, destination: File) {
+  const response = await fetch(url, { headers });
+
+  if (!response.ok) {
+    if (response.status === 410 || response.status === 403) {
+      throw Object.assign(new Error("expired"), { expired: true });
+    }
+
+    let message = `Server membalas HTTP ${response.status}.`;
+
+    try {
+      const body = (await response.json()) as { error?: string };
+
+      if (body.error) {
+        message = body.error;
+      }
+    } catch {
+      message = `Server membalas HTTP ${response.status}.`;
+    }
+
+    throw new Error(message);
+  }
+
+  const buffer = await response.arrayBuffer();
+
+  if (!destination.exists) {
+    destination.create();
+  }
+
+  destination.write(new Uint8Array(buffer));
+
+  return destination;
+}
+
 function albumFor(filename: string) {
   const ext = filename.split(".").pop()?.toLowerCase() ?? "";
 
@@ -147,9 +187,11 @@ export async function saveOne(file: SaveFile): Promise<SaveResult> {
       destination.delete();
     }
 
-    const downloaded = await File.downloadFileAsync(target.url, destination, {
-      headers: target.headers,
-    });
+    const downloaded = isSlow(file.url)
+      ? await fetchToFile(target.url, target.headers, destination)
+      : await File.downloadFileAsync(target.url, destination, {
+          headers: target.headers,
+        });
 
     let finalName = file.filename;
     const head = readHead(downloaded);
