@@ -335,10 +335,16 @@ async function saveToDownloads(file: File, filename: string) {
 }
 
 async function toGallery(uri: string, albumName: string) {
+  if (Platform.OS === "android") {
+    throw new Error(
+      "Android tidak boleh menggunakan Album.create(). Gunakan saveToDownloads()."
+    );
+  }
+
   const permission = await requestPermissionsAsync(true);
 
   if (!permission.granted) {
-    throw new Error("Izin galeri ditolak. Aktifkan di pengaturan aplikasi.");
+    throw new Error("Izin galeri ditolak.");
   }
 
   const album = await Album.get(albumName);
