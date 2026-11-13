@@ -1,4 +1,3 @@
-
 import { File, FileMode, Paths } from "expo-file-system";
 import * as FileSystemLegacy from "expo-file-system/legacy";
 import { Album, Asset, requestPermissionsAsync } from "expo-media-library";
@@ -129,7 +128,6 @@ async function fetchToFile(
       const body = (await response.json()) as { error?: string };
       if (body.error) message = body.error;
     } catch {
-      // Gunakan pesan HTTP default.
     }
 
     throw new Error(message);
@@ -181,19 +179,16 @@ async function getOrbitFolder(downloadUri: string) {
 }
 
 async function getDownloadFolder() {
-  // Gunakan izin folder yang sudah pernah disimpan.
   const savedUri = await SecureStore.getItemAsync(DOWNLOAD_FOLDER_KEY);
 
   if (savedUri) {
     try {
       return await getOrbitFolder(savedUri);
     } catch {
-      // Izin lama tidak valid, minta izin kembali.
       await SecureStore.deleteItemAsync(DOWNLOAD_FOLDER_KEY);
     }
   }
 
-  // Arahkan pemilih folder ke Download Android.
   const initialUri = SAF.getUriForDirectoryInRoot("Download");
 
   const permission = await SAF.requestDirectoryPermissionsAsync(initialUri);
@@ -214,7 +209,6 @@ async function getDownloadFolder() {
 
   const folderUri = await getOrbitFolder(selectedUri);
 
-  // Simpan izin agar tidak meminta ulang pada download berikutnya.
   await SecureStore.setItemAsync(DOWNLOAD_FOLDER_KEY, selectedUri);
 
   return folderUri;
@@ -327,7 +321,6 @@ async function saveToDownloads(file: File, filename: string) {
     try {
       await FileSystemLegacy.deleteAsync(destinationUri);
     } catch {
-      // Abaikan jika file sementara sudah tidak ada.
     }
 
     throw error;
@@ -484,7 +477,7 @@ export async function saveOne(file: SaveFile): Promise<SaveResult> {
             renamed.delete();
           }
 
-          downloaded.move(renamed);
+          downloaded.moveSync(renamed);
           finalName = renamed.name;
         } catch {
           finalName = file.filename;
