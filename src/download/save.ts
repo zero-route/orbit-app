@@ -1,8 +1,7 @@
 import { File, FileMode, Paths } from "expo-file-system";
-import * as FileSystemLegacy from "expo-file-system/legacy";
 import { Album, Asset, requestPermissionsAsync } from "expo-media-library";
-import * as SecureStore from "expo-secure-store";
-import { Platform } from "react-native";
+import { PermissionsAndroid, Platform } from "react-native";
+import { media } from "react-native-blob-util";
 
 import { authHeaders } from "../api/device";
 import { absolute, ALBUM_NAME } from "../config";
@@ -17,11 +16,6 @@ export type SaveResult =
   | { ok: false; expired?: boolean; message: string };
 
 const LINK_PREFIX = "/api/ytlink";
-const DOWNLOAD_FOLDER_KEY = "orbit_download_folder_v1";
-const DOWNLOAD_FOLDER_NAME = "Orbit Downloader";
-const CHUNK_SIZE = 1024 * 1024;
-
-const SAF = FileSystemLegacy.StorageAccessFramework;
 
 function isProxy(url: string) {
   return url.startsWith("/api/");
@@ -158,62 +152,6 @@ function albumFor(filename: string) {
   return `${ALBUM_NAME} Video`;
 }
 
-function decodeUri(uri: string) {
-  try {
-    return decodeURIComponent(uri);
-  } catch {
-    return uri;
-  }
-}
-
-async function getOrbitFolder(downloadUri: string) {
-  const entries = await SAF.readDirectoryAsync(downloadUri);
-
-  const existing = entries.find((uri) =>
-    decodeUri(uri).toLowerCase().includes(DOWNLOAD_FOLDER_NAME.toLowerCase())
-  );
-
-  if (existing) return existing;
-
-  return SAF.makeDirectoryAsync(downloadUri, DOWNLOAD_FOLDER_NAME);
-}
-
-async function getDownloadFolder() {
-  const savedUri = await SecureStore.getItemAsync(DOWNLOAD_FOLDER_KEY);
-
-  if (savedUri) {
-    try {
-      return await getOrbitFolder(savedUri);
-    } catch {
-      await SecureStore.deleteItemAsync(DOWNLOAD_FOLDER_KEY);
-    }
-  }
-
-  const initialUri = SAF.getUriForDirectoryInRoot("Download");
-
-  const permission = await SAF.requestDirectoryPermissionsAsync(initialUri);
-
-  if (!permission.granted) {
-    throw new Error(
-      "Izin folder Download ditolak. Izinkan Orbit mengakses folder Download."
-    );
-  }
-
-  const selectedUri = permission.directoryUri;
-
-  if (!decodeUri(selectedUri).includes("primary:Download")) {
-    throw new Error(
-      "Pilih folder Download di penyimpanan internal Android."
-    );
-  }
-
-  const folderUri = await getOrbitFolder(selectedUri);
-
-  await SecureStore.setItemAsync(DOWNLOAD_FOLDER_KEY, selectedUri);
-
-  return folderUri;
-}
-
 function mimeTypeFor(filename: string) {
   const ext = filename.split(".").pop()?.toLowerCase() ?? "";
 
@@ -242,89 +180,30 @@ function mimeTypeFor(filename: string) {
   return types[ext] ?? "application/octet-stream";
 }
 
-function splitFilename(filename: string) {
-  const dot = filename.lastIndexOf(".");
-
-  if (dot <= 0) {
-    return { base: filename, ext: "" };
+async function ensureLegacyPermission() {
+  if (Platform.OS !== "android" || Number(Platform.Version) >= 29) {
+    return;
   }
 
-  return {
-    base: filename.slice(0, dot),
-    ext: filename.slice(dot + 1),
-  };
-}
-
-async function uniqueFilename(folderUri: string, filename: string) {
-  const { base, ext } = splitFilename(filename);
-  const entries = await SAF.readDirectoryAsync(folderUri);
-  const existing = new Set(
-    entries.map((uri) => decodeUri(uri).split("/").pop()?.toLowerCase())
+  const result = await PermissionsAndroid.request(
+    PermissionsAndroid.PERMISSIONS.WRITE_EXTERNAL_STORAGE
   );
 
-  for (let i = 0; i < 1000; i++) {
-    const suffix = i === 0 ? "" : ` (${i})`;
-    const candidate = `${base}${suffix}${ext ? `.${ext}` : ""}`;
-
-    if (!existing.has(candidate.toLowerCase())) {
-      return candidate;
-    }
-  }
-
-  return `${base}-${Date.now()}${ext ? `.${ext}` : ""}`;
-}
-
-async function copyToSaf(source: File, destinationUri: string) {
-  const destination = new File(destinationUri);
-
-  const reader = source.open(FileMode.ReadOnly);
-  const writer = destination.open(FileMode.WriteOnly);
-
-  try {
-    const total = reader.size ?? source.size;
-    let copied = 0;
-
-    while (copied < total) {
-      const bytes = await reader.readBytes(
-        Math.min(CHUNK_SIZE, total - copied)
-      );
-
-      if (bytes.length === 0) break;
-
-      await writer.writeBytes(bytes);
-      copied += bytes.length;
-    }
-
-    if (copied !== total) {
-      throw new Error("Penyalinan file tidak lengkap. Coba unduh kembali.");
-    }
-  } finally {
-    reader.close();
-    writer.close();
+  if (result !== PermissionsAndroid.RESULTS.GRANTED) {
+    throw new Error("Izin penyimpanan ditolak. Aktifkan di pengaturan aplikasi.");
   }
 }
 
 async function saveToDownloads(file: File, filename: string) {
-  const folderUri = await getDownloadFolder();
-  const safeFilename = await uniqueFilename(folderUri, filename);
-  const { base } = splitFilename(safeFilename);
+  await ensureLegacyPermission();
 
-  const destinationUri = await SAF.createFileAsync(
-    folderUri,
-    base,
-    mimeTypeFor(safeFilename)
+  const path = file.uri.replace(/^file:\/\//, "");
+
+  await media.copyToMediaStore(
+    { name: filename, parentFolder: "", mime: mimeTypeFor(filename) },
+    "Download",
+    path
   );
-
-  try {
-    await copyToSaf(file, destinationUri);
-  } catch (error) {
-    try {
-      await FileSystemLegacy.deleteAsync(destinationUri);
-    } catch {
-    }
-
-    throw error;
-  }
 }
 
 async function toGallery(uri: string, albumName: string) {
