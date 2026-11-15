@@ -197,7 +197,7 @@ async function ensureLegacyPermission() {
 async function saveToDownloads(file: File, filename: string) {
   await ensureLegacyPermission();
 
-  const path = file.uri.replace(/^file:\/\//, "");
+  const path = decodeURIComponent(file.uri.replace(/^file:\/\//, ""));
 
   await media.copyToMediaStore(
     { name: filename, parentFolder: "", mime: mimeTypeFor(filename) },
