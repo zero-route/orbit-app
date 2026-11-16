@@ -9,6 +9,7 @@ import {
   useWindowDimensions,
 } from "react-native";
 import { WebView } from "react-native-webview";
+import { isTrustedEmbed } from "../lib/url";
 import { absolute } from "../config";
 import { formatDuration } from "../lib/text";
 import { colors, radius } from "../theme";
@@ -145,15 +146,27 @@ function VideoStage({ result, videoUrl, onNotice, boxWidth, maxHeight }: StagePr
   const [playing, setPlaying] = useState(false);
   const cover = result.coverUrl ? absolute(result.coverUrl) : undefined;
   const ratio = useRatio(cover, 9 / 16);
-  const height = Math.min(boxWidth / (result.embedUrl ? 16 / 9 : ratio), maxHeight);
-  const canPlay = Boolean(result.embedUrl) || Boolean(videoUrl);
+  const embed = result.embedUrl && isTrustedEmbed(result.embedUrl) ? result.embedUrl : undefined;
+  const height = Math.min(boxWidth / (embed ? 16 / 9 : ratio), maxHeight);
+  const canPlay = Boolean(embed) || Boolean(videoUrl);
 
   return (
     <View style={[styles.box, { width: boxWidth, height }]}>
-      {playing && result.embedUrl ? (
+      {playing && embed ? (
         <WebView
-          source={{ uri: result.embedUrl }}
+          source={{ uri: embed }}
           style={styles.fill}
+          originWhitelist={["https://*"]}
+          onShouldStartLoadWithRequest={(request) =>
+            isTrustedEmbed(request.url) || request.url === "about:blank"
+          }
+          setSupportMultipleWindows={false}
+          javaScriptCanOpenWindowsAutomatically={false}
+          allowFileAccess={false}
+          allowFileAccessFromFileURLs={false}
+          allowUniversalAccessFromFileURLs={false}
+          mixedContentMode="never"
+          geolocationEnabled={false}
           allowsFullscreenVideo
           mediaPlaybackRequiresUserAction={false}
           javaScriptEnabled
