@@ -14,18 +14,25 @@ export class ApiError extends Error {
   }
 }
 
+const TIMEOUT_MS = 45_000;
+
 async function call<T>(path: string, query: string): Promise<T> {
   const target = `${absolute(path)}?url=${encodeURIComponent(query)}`;
 
   for (let attempt = 0; attempt < 2; attempt += 1) {
     let response: Response;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
 
     try {
       response = await fetch(target, {
         headers: await authHeaders(attempt > 0),
+        signal: controller.signal,
       });
     } catch {
       throw new ApiError("Tidak bisa terhubung ke server. Periksa koneksi internet.");
+    } finally {
+      clearTimeout(timer);
     }
 
     if (response.status === 401 && attempt === 0) {
