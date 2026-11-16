@@ -2,6 +2,7 @@ import { Image, Linking, Pressable, StyleSheet, Text, View } from "react-native"
 import { absolute } from "../config";
 import { formatCount } from "../lib/text";
 import { profileUrlFor } from "../lib/profile";
+import { safeExternal } from "../lib/url";
 import { colors, radius } from "../theme";
 import type { Author, PlatformId } from "../types";
 import Icon from "./Icon";
@@ -16,7 +17,7 @@ export default function AuthorRow({ author, platform }: Props) {
     return null;
   }
 
-  const href = author.profileUrl ?? profileUrlFor(platform, author.username);
+  const href = safeExternal(author.profileUrl) ?? profileUrlFor(platform, author.username);
 
   const meta = [
     author.username ? `@${author.username.replace(/^@/, "")}` : null,
