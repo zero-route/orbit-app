@@ -7,16 +7,28 @@ on:
       - "src/**"
       - "App.tsx"
       - "assets/**"
+      - "package.json"
+      - "package-lock.json"
   workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-update
+  cancel-in-progress: true
 
 jobs:
   update:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     env:
       EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
       COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - uses: actions/setup-node@v4
         with:
