@@ -5,6 +5,7 @@ import { media } from "react-native-blob-util";
 
 import { authHeaders } from "../api/device";
 import { absolute, ALBUM_NAME } from "../config";
+import { isHttps } from "../lib/url";
 
 export type SaveFile = {
   url: string;
@@ -23,6 +24,10 @@ function isProxy(url: string) {
 
 async function resolveTarget(file: SaveFile) {
   if (!isProxy(file.url)) {
+    if (!isHttps(file.url)) {
+      throw new Error("Alamat unduhan tidak aman.");
+    }
+
     return {
       url: file.url,
       headers: {} as Record<string, string>,
@@ -54,6 +59,10 @@ async function resolveTarget(file: SaveFile) {
 
   if (!response.ok || !body.url) {
     throw new Error(body.error ?? "Link unduhan tidak tersedia.");
+  }
+
+  if (!isHttps(body.url)) {
+    throw new Error("Alamat unduhan tidak aman.");
   }
 
   return {
@@ -300,14 +309,26 @@ function sameFamily(a: string, b: string) {
   return group(a) === group(b);
 }
 
+function discard(file: File | null) {
+  try {
+    if (file && file.exists) {
+      file.delete();
+    }
+  } catch {
+    return;
+  }
+}
+
 export async function saveOne(file: SaveFile): Promise<SaveResult> {
+  const stamp = `${Date.now()}_${Math.floor(Math.random() * 1_000_000)}`;
+  const staged: File[] = [];
+
   try {
     const target = await resolveTarget(file);
-    const destination = new File(Paths.cache, file.filename);
+    const destination = new File(Paths.cache, `${stamp}_${file.filename}`);
+    staged.push(destination);
 
-    if (destination.exists) {
-      destination.delete();
-    }
+    discard(destination);
 
     if (target.warm) {
       await warmUp(target.url);
@@ -315,12 +336,9 @@ export async function saveOne(file: SaveFile): Promise<SaveResult> {
 
     const downloaded = isSlow(file.url)
       ? await fetchToFile(target.url, target.headers, destination)
-      : await downloadWithRetry(
-          target.url,
-          destination,
-          target.headers
-        );
+      : await downloadWithRetry(target.url, destination, target.headers);
 
+    let current = downloaded;
     let finalName = file.filename;
     const head = readHead(downloaded);
 
@@ -329,7 +347,6 @@ export async function saveOne(file: SaveFile): Promise<SaveResult> {
 
       if (found.text !== undefined) {
         const size = downloaded.size;
-        downloaded.delete();
 
         if (size < 2048 || /expired|kedaluwarsa/i.test(found.text)) {
           return {
@@ -345,25 +362,23 @@ export async function saveOne(file: SaveFile): Promise<SaveResult> {
         };
       }
 
-      const current =
-        file.filename.split(".").pop()?.toLowerCase() ?? "";
+      const extension = file.filename.split(".").pop()?.toLowerCase() ?? "";
 
-      if (found.ext && found.ext !== current && sameFamily(found.ext, current)) {
-        const renamed = new File(Paths.cache, withExt(file.filename, found.ext));
+      if (found.ext && found.ext !== extension && sameFamily(found.ext, extension)) {
+        const renamedName = withExt(file.filename, found.ext);
+        const renamed = new File(Paths.cache, `${stamp}_${renamedName}`);
+        staged.push(renamed);
 
         try {
-          if (renamed.exists) {
-            renamed.delete();
-          }
-
+          discard(renamed);
           downloaded.moveSync(renamed);
-          finalName = renamed.name;
+          current = renamed;
+          finalName = renamedName;
         } catch {
+          current = downloaded;
           finalName = file.filename;
         }
-      } else if (found.ext && !sameFamily(found.ext, current)) {
-        downloaded.delete();
-
+      } else if (found.ext && !sameFamily(found.ext, extension)) {
         return {
           ok: false,
           message: "Format file dari server tidak sesuai. Coba lagi.",
@@ -373,8 +388,6 @@ export async function saveOne(file: SaveFile): Promise<SaveResult> {
       const text = downloaded.textSync().trimStart();
 
       if (text.startsWith("{") || text.startsWith("<")) {
-        downloaded.delete();
-
         return {
           ok: false,
           expired: true,
@@ -384,12 +397,10 @@ export async function saveOne(file: SaveFile): Promise<SaveResult> {
     }
 
     if (Platform.OS === "android") {
-      await saveToDownloads(downloaded, finalName);
+      await saveToDownloads(current, finalName);
     } else {
-      await toGallery(downloaded.uri, albumFor(finalName));
+      await toGallery(current.uri, albumFor(finalName));
     }
-
-    downloaded.delete();
 
     return { ok: true };
   } catch (error) {
@@ -405,5 +416,9 @@ export async function saveOne(file: SaveFile): Promise<SaveResult> {
       ok: false,
       message: error instanceof Error ? error.message : "Gagal mengunduh.",
     };
+  } finally {
+    for (const item of staged) {
+      discard(item);
+    }
   }
 }
