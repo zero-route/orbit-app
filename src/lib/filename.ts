@@ -34,7 +34,14 @@ function titleName(value: string) {
     .slice(0, 150);
 }
 
-export function fileName(result: MediaResult, ext: string, suffix?: string) {
+function safeExt(value: string) {
+  const text = value.toLowerCase().replace(/^\./, "");
+
+  return /^[a-z0-9]{1,5}$/.test(text) ? text : "bin";
+}
+
+export function fileName(result: MediaResult, rawExt: string, suffix?: string) {
+  const ext = safeExt(rawExt);
   const titled = result.platform === "spotify" || result.platform === "youtube";
 
   if (titled && result.audio?.title) {
