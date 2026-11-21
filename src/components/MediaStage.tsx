@@ -10,7 +10,7 @@ import {
 } from "react-native";
 import { WebView } from "react-native-webview";
 import { isTrustedEmbed } from "../lib/url";
-import { absolute } from "../config";
+import { absolute, API_URL } from "../config";
 import { formatDuration } from "../lib/text";
 import { colors, radius } from "../theme";
 import type { MediaResult } from "../types";
@@ -148,17 +148,23 @@ function VideoStage({ result, videoUrl, onNotice, boxWidth, maxHeight }: StagePr
   const ratio = useRatio(cover, 9 / 16);
   const embed = result.embedUrl && isTrustedEmbed(result.embedUrl) ? result.embedUrl : undefined;
   const height = Math.min(boxWidth / (embed ? 16 / 9 : ratio), maxHeight);
-  const canPlay = Boolean(embed) || Boolean(videoUrl);
+  const embedId = embed ? /\/embed\/([\w-]{11})/.exec(embed)?.[1] : undefined;
+  const embedHtml = embedId
+    ? `<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="strict-origin-when-cross-origin"><style>html,body{margin:0;height:100%;background:#000}iframe{border:0;width:100%;height:100%}</style></head><body><iframe src="https://www.youtube-nocookie.com/embed/${embedId}?autoplay=1&playsinline=1&rel=0&origin=${encodeURIComponent(API_URL)}" referrerpolicy="strict-origin-when-cross-origin" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen></iframe></body></html>`
+    : undefined;
+  const canPlay = Boolean(embedHtml) || Boolean(videoUrl);
 
   return (
     <View style={[styles.box, { width: boxWidth, height }]}>
-      {playing && embed ? (
+      {playing && embedHtml ? (
         <WebView
-          source={{ uri: embed }}
+          source={{ html: embedHtml, baseUrl: API_URL }}
           style={styles.fill}
           originWhitelist={["https://*"]}
           onShouldStartLoadWithRequest={(request) =>
-            isTrustedEmbed(request.url) || request.url === "about:blank"
+            isTrustedEmbed(request.url) ||
+            request.url.startsWith(API_URL) ||
+            request.url === "about:blank"
           }
           setSupportMultipleWindows={false}
           javaScriptCanOpenWindowsAutomatically={false}
