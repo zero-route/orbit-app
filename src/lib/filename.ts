@@ -26,12 +26,33 @@ export function baseName(result: MediaResult) {
   return ["Orbit", owner || result.platform, unique].join("_");
 }
 
+function trimBytes(value: string, limit: number) {
+  let out = "";
+  let used = 0;
+
+  for (const char of value) {
+    const code = char.charCodeAt(0);
+    const size = char.length === 2 ? 4 : code < 0x80 ? 1 : code < 0x800 ? 2 : 3;
+
+    if (used + size > limit) {
+      break;
+    }
+
+    out += char;
+    used += size;
+  }
+
+  return out;
+}
+
 function titleName(value: string) {
-  return value
-    .replace(/[\\/:*?"<>|\u0000-\u001f]/g, " ")
-    .replace(/\s{2,}/g, " ")
-    .replace(/^[.\s]+|[.\s]+$/g, "")
-    .slice(0, 150);
+  return trimBytes(
+    value
+      .replace(/[\\/:*?"<>|\u0000-\u001f]/g, " ")
+      .replace(/\s{2,}/g, " ")
+      .replace(/^[.\s]+|[.\s]+$/g, ""),
+    180
+  ).trimEnd();
 }
 
 function safeExt(value: string) {
