@@ -44,7 +44,9 @@
           "photosPermission": "Orbit perlu akses galeri untuk menyimpan hasil unduhan.",
           "savePhotosPermission": "Orbit perlu izin menyimpan hasil unduhan ke galeri."
         }
-      ]
+      ],
+      "expo-asset",
+      "expo-status-bar"
     ],
     "extra": {
       "eas": {
