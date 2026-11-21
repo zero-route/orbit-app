@@ -126,11 +126,24 @@ async function fetchToFile(
     }
 
     let message = `Server membalas HTTP ${response.status}.`;
+    let fallback: string | null = null;
 
     try {
-      const body = (await response.json()) as { error?: string };
-      if (body.error) message = body.error;
+      const body = (await response.json()) as { error?: string; url?: unknown };
+
+      if (body.error) {
+        message = body.error;
+      }
+
+      if (isHttps(body.url)) {
+        fallback = body.url;
+      }
     } catch {
+      fallback = null;
+    }
+
+    if (fallback) {
+      return downloadWithRetry(fallback, destination, {});
     }
 
     throw new Error(message);
