@@ -206,7 +206,7 @@ async function ensureLegacyPermission() {
 async function saveToDownloads(file: File, filename: string) {
   await ensureLegacyPermission();
 
-  const path = decodeURIComponent(file.uri.replace(/^file:\/\//, ""));
+  const path = file.uri.replace(/^file:\/\//, "");
 
   await media.copyToMediaStore(
     { name: filename, parentFolder: "", mime: mimeTypeFor(filename) },
@@ -309,6 +309,12 @@ function sameFamily(a: string, b: string) {
   return group(a) === group(b);
 }
 
+function stagedExt(filename: string) {
+  const ext = filename.split(".").pop()?.toLowerCase() ?? "";
+
+  return /^[a-z0-9]{1,5}$/.test(ext) ? ext : "bin";
+}
+
 function discard(file: File | null) {
   try {
     if (file && file.exists) {
@@ -325,7 +331,7 @@ export async function saveOne(file: SaveFile): Promise<SaveResult> {
 
   try {
     const target = await resolveTarget(file);
-    const destination = new File(Paths.cache, `${stamp}_${file.filename}`);
+    const destination = new File(Paths.cache, `${stamp}.${stagedExt(file.filename)}`);
     staged.push(destination);
 
     discard(destination);
@@ -366,7 +372,7 @@ export async function saveOne(file: SaveFile): Promise<SaveResult> {
 
       if (found.ext && found.ext !== extension && sameFamily(found.ext, extension)) {
         const renamedName = withExt(file.filename, found.ext);
-        const renamed = new File(Paths.cache, `${stamp}_${renamedName}`);
+        const renamed = new File(Paths.cache, `${stamp}.${found.ext}`);
         staged.push(renamed);
 
         try {
