@@ -14,6 +14,7 @@ import { ApiError, loadDetails, resolveBase } from "../api/client";
 import { getToken } from "../api/device";
 import Alert from "../components/Alert";
 import ActionBar from "../components/ActionBar";
+import BuildInfo from "../components/BuildInfo";
 import GradientBox from "../components/GradientBox";
 import Icon from "../components/Icon";
 import Logo from "../components/Logo";
@@ -247,6 +248,8 @@ export default function HomeScreen() {
           <Logo size={36} />
           <Text style={styles.brand}>Orbit</Text>
         </View>
+
+        <BuildInfo />
 
         {!compact ? (
           <View style={styles.hero}>
