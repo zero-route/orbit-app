@@ -246,14 +246,13 @@ export default function HomeScreen() {
       >
         <View style={styles.header}>
           <Logo size={36} />
-          <Text style={styles.brand}>Orbit</Text>
+          <Text style={styles.brand}>Orbit Downloader</Text>
         </View>
 
         <BuildInfo />
 
         {!compact ? (
           <View style={styles.hero}>
-            <Text style={styles.title}>Orbit Media</Text>
             <Text style={styles.sub}>Download media dari berbagai platform</Text>
           </View>
         ) : null}
@@ -341,10 +340,9 @@ const styles = StyleSheet.create({
   },
   scroll: { padding: 20, gap: 16 },
   header: { flexDirection: "row", alignItems: "center", gap: 10 },
-  brand: { color: colors.text, fontSize: 20, fontWeight: "600", letterSpacing: -0.2 },
-  hero: { alignItems: "center", gap: 10, marginTop: 56, marginBottom: 14 },
-  title: { color: colors.text, fontSize: 33, fontWeight: "600", letterSpacing: -0.8 },
-  sub: { color: colors.mute, fontSize: 15, textAlign: "center" },
+  brand: { color: colors.text, fontSize: 17, fontWeight: "600", letterSpacing: -0.2 },
+  hero: { alignItems: "center", marginTop: 40, marginBottom: 10 },
+  sub: { color: colors.mute, fontSize: 13, textAlign: "center" },
   row: { flexDirection: "row", gap: 10, alignItems: "stretch" },
   flex: { flex: 1 },
   urlInner: {
