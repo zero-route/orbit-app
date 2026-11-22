@@ -59,8 +59,15 @@ function useRatio(uri: string | undefined, fallback: number) {
 
 type StageProps = Props & { boxWidth: number; maxHeight: number };
 
+function audioSource(result: MediaResult) {
+  const path = result.audio?.previewUrl ?? result.audio?.url;
+
+  return path ? absolute(path) : undefined;
+}
+
 function PhotoStage({ result, photoIndex, selected, onPhotoIndex, onToggle, boxWidth, maxHeight }: StageProps) {
   const total = result.photos.length;
+  const music = audioSource(result);
   const current = result.photos[photoIndex];
   const shown = current?.isVideo ? current.thumbnailUrl : (current?.previewUrl ?? current?.url);
   const [ratio, setRatio] = useState(1);
@@ -122,6 +129,7 @@ function PhotoStage({ result, photoIndex, selected, onPhotoIndex, onToggle, boxW
           })}
         </ScrollView>
       ) : null}
+      {music ? <AudioPreview uri={music} fallbackDuration={result.durationSeconds} /> : null}
     </View>
   );
 }
@@ -129,15 +137,14 @@ function PhotoStage({ result, photoIndex, selected, onPhotoIndex, onToggle, boxW
 function AudioStage({ result, boxWidth, maxHeight }: StageProps) {
   const cover = result.coverUrl ? absolute(result.coverUrl) : undefined;
   const size = Math.min(boxWidth, maxHeight);
+  const music = audioSource(result);
 
   return (
     <View style={styles.gap}>
       <View style={[styles.box, { width: boxWidth, height: size }]}>
         {cover ? <Image source={{ uri: cover }} style={styles.fill} resizeMode="cover" /> : null}
       </View>
-      {result.audio?.previewUrl ? (
-        <AudioPreview uri={absolute(result.audio.previewUrl)} fallbackDuration={result.durationSeconds} />
-      ) : null}
+      {music ? <AudioPreview uri={music} fallbackDuration={result.durationSeconds} /> : null}
     </View>
   );
 }
