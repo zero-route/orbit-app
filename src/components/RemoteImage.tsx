@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Image, Pressable, StyleSheet, Text, type ImageStyle, type StyleProp } from "react-native";
 import { authHeaders } from "../api/device";
 import { absolute } from "../config";
+import { directSource } from "../lib/direct";
 import { colors } from "../theme";
 
 type Props = {
@@ -38,8 +39,14 @@ export default function RemoteImage({ uri, style, resizeMode = "cover", onSize, 
   const [headers, setHeaders] = useState<Record<string, string> | null>(null);
   const [attempt, setAttempt] = useState(0);
   const [failure, setFailure] = useState<string | null>(null);
+  const [useDirect, setUseDirect] = useState(false);
   const full = uri ? absolute(uri) : undefined;
   const proxied = Boolean(uri && uri.startsWith("/api/"));
+  const direct = uri ? directSource(uri) : null;
+
+  useEffect(() => {
+    setUseDirect(false);
+  }, [uri]);
 
   useEffect(() => {
     let live = true;
@@ -79,11 +86,17 @@ export default function RemoteImage({ uri, style, resizeMode = "cover", onSize, 
     ) : null;
   }
 
-  const source = attempt > 0 && proxied ? `${full}&r=${attempt}` : full;
+  const viaDirect = useDirect && direct !== null;
+  const source = viaDirect
+    ? direct.url
+    : attempt > 0 && proxied
+      ? `${full}&r=${attempt}`
+      : full;
+  const sourceHeaders = viaDirect ? direct.headers : headers;
 
   return (
     <Image
-      source={{ uri: source, headers }}
+      source={{ uri: source, headers: sourceHeaders }}
       style={style}
       resizeMode={resizeMode}
       onLoad={(event) => {
@@ -94,7 +107,12 @@ export default function RemoteImage({ uri, style, resizeMode = "cover", onSize, 
         }
       }}
       onError={() => {
-        void explain(source, headers).then(setFailure);
+        if (direct && !useDirect) {
+          setUseDirect(true);
+          return;
+        }
+
+        void explain(source, sourceHeaders).then(setFailure);
       }}
     />
   );
