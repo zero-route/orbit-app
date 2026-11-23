@@ -5,6 +5,7 @@ import { media } from "react-native-blob-util";
 
 import { authHeaders } from "../api/device";
 import { absolute, ALBUM_NAME } from "../config";
+import { directSource } from "../lib/direct";
 import { isHttps } from "../lib/url";
 
 export type SaveFile = {
@@ -338,90 +339,123 @@ function discard(file: File | null) {
   }
 }
 
+type Candidate = {
+  url: string;
+  headers: Record<string, string>;
+  slow: boolean;
+  warm: boolean;
+};
+
+async function candidatesFor(file: SaveFile) {
+  const target = await resolveTarget(file);
+
+  const list: Candidate[] = [
+    {
+      url: target.url,
+      headers: target.headers,
+      slow: isSlow(file.url),
+      warm: target.warm,
+    },
+  ];
+
+  const direct = directSource(file.url);
+
+  if (direct) {
+    list.push({ url: direct.url, headers: direct.headers, slow: false, warm: false });
+  }
+
+  return list;
+}
+
 export async function saveOne(file: SaveFile): Promise<SaveResult> {
   const stamp = `${Date.now()}_${Math.floor(Math.random() * 1_000_000)}`;
   const staged: File[] = [];
 
   try {
-    const target = await resolveTarget(file);
-    const destination = new File(Paths.cache, `${stamp}.${stagedExt(file.filename)}`);
-    staged.push(destination);
+    const list = await candidatesFor(file);
+    let message = "Gagal mengunduh.";
+    let expired = false;
 
-    discard(destination);
+    for (const candidate of list) {
+      const destination = new File(Paths.cache, `${stamp}.${stagedExt(file.filename)}`);
+      staged.push(destination);
+      discard(destination);
 
-    if (target.warm) {
-      await warmUp(target.url);
-    }
-
-    const downloaded = isSlow(file.url)
-      ? await fetchToFile(target.url, target.headers, destination)
-      : await downloadWithRetry(target.url, destination, target.headers);
-
-    let current = downloaded;
-    let finalName = file.filename;
-    const head = readHead(downloaded);
-
-    if (head) {
-      const found = sniff(head);
-
-      if (found.text !== undefined) {
-        const size = downloaded.size;
-
-        if (size < 2048 || /expired|kedaluwarsa/i.test(found.text)) {
-          return {
-            ok: false,
-            expired: true,
-            message: "Link kedaluwarsa, ambil ulang.",
-          };
+      try {
+        if (candidate.warm) {
+          await warmUp(candidate.url);
         }
 
-        return {
-          ok: false,
-          message: "Server mengirim galat, bukan file media. Coba lagi.",
-        };
-      }
+        const downloaded = candidate.slow
+          ? await fetchToFile(candidate.url, candidate.headers, destination)
+          : await downloadWithRetry(candidate.url, destination, candidate.headers);
 
-      const extension = file.filename.split(".").pop()?.toLowerCase() ?? "";
+        let current = downloaded;
+        let finalName = file.filename;
+        const head = readHead(downloaded);
 
-      if (found.ext && found.ext !== extension && sameFamily(found.ext, extension)) {
-        const renamedName = withExt(file.filename, found.ext);
-        const renamed = new File(Paths.cache, `${stamp}.${found.ext}`);
-        staged.push(renamed);
+        if (head) {
+          const found = sniff(head);
 
-        try {
-          discard(renamed);
-          downloaded.moveSync(renamed);
-          current = renamed;
-          finalName = renamedName;
-        } catch {
-          current = downloaded;
-          finalName = file.filename;
+          if (found.text !== undefined) {
+            if (downloaded.size < 2048 || /expired|kedaluwarsa/i.test(found.text)) {
+              expired = true;
+              message = "Link kedaluwarsa, ambil ulang.";
+            } else {
+              message = "Server mengirim galat, bukan file media. Coba lagi.";
+            }
+
+            continue;
+          }
+
+          const extension = file.filename.split(".").pop()?.toLowerCase() ?? "";
+
+          if (found.ext && found.ext !== extension && sameFamily(found.ext, extension)) {
+            const renamedName = withExt(file.filename, found.ext);
+            const renamed = new File(Paths.cache, `${stamp}.${found.ext}`);
+            staged.push(renamed);
+
+            try {
+              discard(renamed);
+              downloaded.moveSync(renamed);
+              current = renamed;
+              finalName = renamedName;
+            } catch {
+              current = downloaded;
+              finalName = file.filename;
+            }
+          } else if (found.ext && !sameFamily(found.ext, extension)) {
+            message = "Format file dari server tidak sesuai. Coba lagi.";
+            continue;
+          }
+        } else if (downloaded.size < 2048) {
+          const text = downloaded.textSync().trimStart();
+
+          if (text.startsWith("{") || text.startsWith("<")) {
+            expired = true;
+            message = "Link kedaluwarsa, ambil ulang.";
+            continue;
+          }
         }
-      } else if (found.ext && !sameFamily(found.ext, extension)) {
-        return {
-          ok: false,
-          message: "Format file dari server tidak sesuai. Coba lagi.",
-        };
-      }
-    } else if (downloaded.size < 2048) {
-      const text = downloaded.textSync().trimStart();
 
-      if (text.startsWith("{") || text.startsWith("<")) {
-        return {
-          ok: false,
-          expired: true,
-          message: "Link kedaluwarsa, ambil ulang.",
-        };
+        if (Platform.OS === "android") {
+          await saveToDownloads(current, finalName);
+        } else {
+          await toGallery(current.uri, albumFor(finalName));
+        }
+
+        return { ok: true };
+      } catch (error) {
+        if (error && typeof error === "object" && "expired" in error) {
+          expired = true;
+          message = "Link kedaluwarsa, ambil ulang.";
+        } else {
+          message = error instanceof Error ? error.message : "Gagal mengunduh.";
+        }
       }
     }
 
-    if (Platform.OS === "android") {
-      await saveToDownloads(current, finalName);
-    } else {
-      await toGallery(current.uri, albumFor(finalName));
-    }
-
-    return { ok: true };
+    return expired ? { ok: false, expired: true, message } : { ok: false, message };
   } catch (error) {
     if (error && typeof error === "object" && "expired" in error) {
       return {
