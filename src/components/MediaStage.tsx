@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import {
   Image,
+  Linking,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -9,6 +10,7 @@ import {
   useWindowDimensions,
 } from "react-native";
 import { WebView } from "react-native-webview";
+import { directSource } from "../lib/direct";
 import { isTrustedEmbed } from "../lib/url";
 import { absolute, API_URL } from "../config";
 import { formatDuration } from "../lib/text";
@@ -135,14 +137,13 @@ function PhotoStage({ result, photoIndex, selected, onPhotoIndex, onToggle, boxW
 }
 
 function AudioStage({ result, boxWidth, maxHeight }: StageProps) {
-  const cover = result.coverUrl ? absolute(result.coverUrl) : undefined;
   const size = Math.min(boxWidth, maxHeight);
   const music = audioSource(result);
 
   return (
     <View style={styles.gap}>
       <View style={[styles.box, { width: boxWidth, height: size }]}>
-        {cover ? <Image source={{ uri: cover }} style={styles.fill} resizeMode="cover" /> : null}
+        <RemoteImage uri={result.coverUrl} style={styles.fill} resizeMode="cover" showError />
       </View>
       {music ? <AudioPreview uri={music} fallbackDuration={result.durationSeconds} /> : null}
     </View>
@@ -187,17 +188,28 @@ function VideoStage({ result, videoUrl, onNotice, boxWidth, maxHeight }: StagePr
       ) : playing && videoUrl ? (
         <VideoPreview
           uri={absolute(videoUrl)}
-          onFail={() => {
+          direct={directSource(videoUrl)}
+          onFail={(reason) => {
             setPlaying(false);
-            onNotice("Pratinjau tidak bisa diputar. Tombol unduh tetap bisa dipakai.");
+            onNotice(
+              `Pratinjau tidak bisa diputar${reason ? ` (${reason})` : ""}. Tombol unduh tetap bisa dipakai.`
+            );
           }}
         />
       ) : (
         <>
-          {cover ? <Image source={{ uri: cover }} style={styles.fill} resizeMode="contain" /> : null}
+          <RemoteImage uri={result.coverUrl} style={styles.fill} resizeMode="contain" showError />
           {canPlay ? (
             <Pressable style={styles.play} onPress={() => setPlaying(true)}>
               <Icon name="play" size={26} color={colors.text} />
+            </Pressable>
+          ) : null}
+          {embedId ? (
+            <Pressable
+              style={styles.external}
+              onPress={() => void Linking.openURL(`https://www.youtube.com/watch?v=${embedId}`)}
+            >
+              <Text style={styles.externalText}>Buka di YouTube</Text>
             </Pressable>
           ) : null}
           {result.durationSeconds ? (
@@ -261,6 +273,16 @@ const styles = StyleSheet.create({
     borderRadius: radius.sm,
     overflow: "hidden",
   },
+  external: {
+    position: "absolute",
+    left: 12,
+    bottom: 12,
+    backgroundColor: "rgba(0,0,0,0.65)",
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: radius.sm,
+  },
+  externalText: { color: colors.text, fontSize: 12, fontWeight: "600" },
   badgeTop: { top: 12, bottom: undefined, right: undefined, left: 12 },
   nav: {
     position: "absolute",
