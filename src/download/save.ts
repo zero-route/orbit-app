@@ -312,17 +312,6 @@ function withExt(filename: string, ext: string) {
   return `${dot > 0 ? filename.slice(0, dot) : filename}.${ext}`;
 }
 
-function sameFamily(a: string, b: string) {
-  const group = (ext: string) =>
-    ["jpg", "jpeg", "png", "webp", "gif", "heic", "heif"].includes(ext)
-      ? "image"
-      : ["mp3", "m4a", "aac", "wav", "ogg", "opus", "flac"].includes(ext)
-        ? "audio"
-        : "video";
-
-  return group(a) === group(b);
-}
-
 function stagedExt(filename: string) {
   const ext = filename.split(".").pop()?.toLowerCase() ?? "";
 
@@ -410,7 +399,7 @@ export async function saveOne(file: SaveFile): Promise<SaveResult> {
 
           const extension = file.filename.split(".").pop()?.toLowerCase() ?? "";
 
-          if (found.ext && found.ext !== extension && sameFamily(found.ext, extension)) {
+          if (found.ext && found.ext !== extension) {
             const renamedName = withExt(file.filename, found.ext);
             const renamed = new File(Paths.cache, `${stamp}.${found.ext}`);
             staged.push(renamed);
@@ -424,9 +413,6 @@ export async function saveOne(file: SaveFile): Promise<SaveResult> {
               current = downloaded;
               finalName = file.filename;
             }
-          } else if (found.ext && !sameFamily(found.ext, extension)) {
-            message = "Format file dari server tidak sesuai. Coba lagi.";
-            continue;
           }
         } else if (downloaded.size < 2048) {
           const text = downloaded.textSync().trimStart();
